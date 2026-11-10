@@ -1,6 +1,6 @@
 # Bike Sharing Demand Intelligence
 
-**Sigmoid Data Science Trainee Case Study | Round **  
+**Sigmoid Data Science Trainee Case Study | **  
 **Domain:** Data Science, Demand Forecasting and Business Analytics  
 **Dataset:** UCI Bike Sharing Dataset — Capital Bikeshare, Washington, D.C. (2011–2012)
 
