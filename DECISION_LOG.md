@@ -1,447 +1,144 @@
-**# Decision Log — Bike Sharing Demand Intelligence**
+# Decision Log — Bike Sharing Demand Intelligence
 
+**Case study:** Sigmoid Data Science Trainee — Round 2  
+**Dataset:** UCI Bike Sharing Dataset (Capital Bikeshare, 2011–2012)  
+**Purpose:** Record the main analytical, modelling, prototype and business decisions and explain why they were made.
 
+## 1. Business problem framing
 
-**\*\*Project:\*\*** Bike Sharing Demand Forecasting and Operational Decision Support  
+**Decision:** Investigate whether better demand understanding, forecasting, fleet-health checks and redistribution should be tested before recommending broad fleet purchases.
 
-**\*\*Case Study:\*\*** Sigmoid Data Science Trainee — Round 2  
+**Reasoning:** The case describes riders reporting bike unavailability while bikes are observed sitting unused elsewhere. This is consistent with possible temporal or spatial mismatch, but it is not sufficient evidence to diagnose the cause.
 
-**\*\*Dataset:\*\*** UCI Bike Sharing Dataset (2011–2012)
+**Limitation:** The supplied data records completed citywide rentals. It does not identify failed requests, station-level stock, idle locations or maintenance downtime. Redistribution is therefore a hypothesis to test, not an established root cause.
 
+## 2. Dataset selection and quality checks
 
+**Decision:** Use both `hour.csv` (17,379 rows) and `day.csv` (731 rows).
 
-This document records the major analytical, statistical, modelling and business decisions made during the case study, along with the reasoning behind each decision.
+**Reasoning:** Hourly data supports intraday profiles and forecasting; daily data supports daily summaries and quality checks.
 
+**Checks recorded:**
+- Dataset dimensions, column types, recorded-row nulls and duplicates.
+- Duplicate date-hour keys and timestamp continuity.
+- Consistency of `casual + registered = cnt`.
+- Zero humidity/windspeed readings and rare weather category 4.
+- High-demand observations were inspected and retained unless independent evidence identified an error.
 
+**Important treatment:** The timestamp audit identified 165 missing hourly timestamps across 76 incomplete days. These are absent timestamps, not null values in existing rows. They were not automatically filled with zero rentals. Complete days were used for the commute-share hypothesis test.
 
-**---**
+## 3. Feature engineering and leakage prevention
 
+**Decision:** Use calendar, time and weather variables to estimate `cnt`.
 
+**Predictors include:** season, year, month, hour, holiday, weekday, working-day indicator, weather situation, temperature, feels-like temperature, humidity and windspeed.
 
-**## 1. Business Problem Definition**
+**Excluded:**
+- `casual` and `registered`, because they sum directly to `cnt` and would leak the target.
+- `instant`, because it is a row identifier rather than a meaningful demand feature.
 
+**Reasoning:** Predictors should be information that could reasonably be available at prediction time. For live forecasting, future weather would need to come from a weather forecast source rather than from future observed weather.
 
+## 4. Exploratory-analysis choices
 
-**\*\*Decision:\*\*** Investigate whether bike-sharing operational problems can be addressed through better demand forecasting and resource allocation before recommending additional fleet purchases.
+**Decision:** Analyze demand by hour, working-day status, customer segment, weather and season instead of relying only on one overall average.
 
+**Key recorded findings:**
+- 3,292,679 hourly completed rentals; approximately 189.5 rentals per recorded hour.
+- Maximum observed hour: 977 rentals.
+- Overall highest average hour: 17:00 at 461.45 rentals/hour; 18:00 follows at 425.51.
+- Working-day average: 193.21 rentals/hour; non-working-day average: 181.41.
+- Registered share: 86.77% on working days; casual share: 31.66% on non-working days.
+- Less favourable weather groups show lower descriptive averages, but this is observational, not causal. Weather category 4 has only three observations.
 
+## 5. Primary hypothesis design
 
-**\*\*Reasoning:\*\*** The case describes riders experiencing bike unavailability while other bikes remain unused. This suggests a possible mismatch between the timing or location of demand and bike availability.
+**Decision:** Test whether the share of daily rentals in commute windows is higher on working days than on non-working days.
 
+**H0:** The commute-window share is the same across day types.  
+**H1:** It is higher on working days.
 
+**Window definition:** 07:00–09:00 and 17:00–19:00 (hours 7, 8, 9, 17, 18 and 19).
 
-**\*\*Implication:\*\*** The analysis focuses on temporal demand patterns, customer behaviour, forecasting and illustrative fleet-planning scenarios.
+**Unit of analysis:** One complete day, not one hour. This avoids treating correlated hourly observations from the same day as independent replicates.
 
+**Recorded result:** 443 complete working days and 212 complete non-working days; mean shares 51.63% and 26.25%; difference 25.39 percentage points. Mann–Whitney U = 93,434 (p = 1.71 × 10⁻⁹³); permutation p = 0.0002; bootstrap 95% CI = 24.67–26.06 percentage points; Cliff's delta = 0.9897.
 
+**Interpretation:** Evidence supports a large difference in commute-window concentration in the analysed historical data. Consecutive daily observations may be temporally dependent. This result does not establish station-level movement or actual stock-outs.
 
-**\*\*Limitation:\*\*** The available dataset contains completed rentals at an hourly citywide level. It does not directly record failed rental attempts, station-level availability or idle-bike locations. Therefore, redistribution is a recommendation to investigate and pilot, not a proven solution.
+## 6. Forecasting target and evaluation design
 
+**Decision:** Predict hourly completed rentals (`cnt`) using a Random Forest Regressor.
 
+**Evaluation:** Chronological 70% / 15% / 15% train-validation-test partition. Training uses 12,165 rows, validation 2,607 and test 2,607. The latest test period is kept separate from model selection.
 
-**## 2. Dataset Selection and Quality**
+**Recorded final test metrics:** MAE = 64.09 rentals/hour; RMSE = 94.54 rentals/hour; R² = 0.8068.
 
+**Reasoning:** MAE gives average absolute error; RMSE gives additional weight to large misses; R² summarizes explained variation on the test observations. These latest values supersede older model-run numbers and are the values used in the final project documentation.
 
+**Feature-importance interpretation:** `atemp` is the largest individual encoded feature (14.83%), followed by `hr_17` (9.38%), `hum` (8.54%), `hr_18` (8.14%), `temp` (6.02%) and `hr_8` (5.90%). Importance is model reliance, not causality. One-hot encoded hour columns should not be read as the total importance of hour.
 
-**\*\*Decision:\*\*** Use the UCI Bike Sharing Dataset, analysing both hourly and daily records.
+**Operational caution:** Peak-period error is higher than off-peak error, particularly in the evening, and forecasts can understate peak demand. Forecasts should be treated as planning support, not ground truth.
 
+## 7. Fleet-sizing scenario choices
 
+**Decision:** Use Little's Law to create an adjustable scenario rather than claim the dataset reveals actual fleet size.
 
-**\*\*Reasoning:\*\*** The dataset provides historical rental counts, calendar variables, customer segments and weather conditions.
+**Reference demand:** Observed 2012 P95 = 662 rentals/hour.  
+**Assumptions:** 20-minute trip duration, 2.0× spatial positioning buffer and 10% maintenance reserve.
 
+**Calculation:** `ceil(662 × (20/60) × 2.0 ÷ (1 − 0.10)) = 491 bikes`.
 
+**Sensitivity:** At 662 rentals/hour and 10% maintenance, the scenario ranges from 276 to 1,104 bikes when varying trip duration (15/20/30 minutes) and buffer (1.5×/2×/3×).
 
-**\*\*Quality checks performed:\*\***
+**Limitation:** This is not a measured fleet requirement. The data has no actual trip-duration, station inventory, fleet, dock, maintenance or spatial-flow records. The optional station-transfer shortlist is a heuristic; synthetic test data validates software behaviour only.
 
-\- Checked dataset dimensions and column types.
+## 8. Business recommendation and proposed experiment
 
-\- Checked missing values and duplicate records.
+**Decision:** Do not recommend broad fleet expansion solely from citywide completed-rental counts. Instrument station operations and test forecast-guided redistribution against business-as-usual first.
 
-\- Examined hourly timestamp continuity.
+**Pilot design:** 4–6 weeks, matched station clusters, stable treatment/control assignment and pre-registered success criteria. If there are too few independent clusters, consider a randomized switchback design by cluster-week.
 
-\- Investigated zero windspeed values.
+**Primary outcome:** Empty-station minutes per station-hour during defined peak windows.
 
-\- Identified unusual rental-count observations.
+**Secondary outcomes:** Failed rental attempts per 1,000 attempts, completed rentals per station-hour, station-hours within target stock, idle-bike hours and complaints.
 
+**Guardrails:** Driver hours, distance, costs, cost per additional successful rental, safety incidents, bike damage and control-zone service quality.
 
+**Decision rule:** Consider targeted purchases only if reliable station-level evidence shows shortages persist after redistribution and fleet-health improvements, and the service/cost/safety case supports purchase.
 
-**\*\*Decision on outliers:\*\*** Retain high-demand observations rather than automatically removing them.
+## 9. Streamlit dashboard decisions
 
+**Decision:** Retain the original `app.py` and use `app_GEMINI_NLP.py` as the Gemini-enabled entry point, avoiding destructive replacement of the original app.
 
+**Dashboard sections:** Demand Overview; Hourly Analysis; Customer Segmentation; Demand Prediction; Fleet Planning & Experiment; Business Assistant.
 
-**\*\*Reasoning:\*\*** High rental counts may represent genuine peak demand and are operationally important.
+**Model artifact:** The current prediction workflow uses `models/bike_demand_model_bundle.pkl`, which contains the current fitted model/preprocessing schema. The older `bike_demand_random_forest.pkl` is a legacy artifact and is not interchangeable with the current one-hot model bundle.
 
+## 10. Gemini Business Assistant design
 
+**Decision:** Add natural-language question understanding using the Google `google-genai` SDK and manual function calling.
 
-**## 3. Feature Engineering and Leakage Prevention**
+**Design safeguards:**
+- Gemini can select only from an explicit allow-list of analytical tools.
+- Function names and arguments are validated locally before execution.
+- Python functions perform the calculations against the local Pandas data or saved model.
+- Gemini receives aggregate function results for explanation, not raw CSV files or arbitrary executable Python.
+- A numeric-grounding check checks generated numbers against the tool output.
+- If the API key is absent or Gemini is unavailable, deterministic rule-based fallback remains available and the interface identifies fallback mode.
+- The API key is read from an environment variable or Streamlit secrets; it is not written into source code.
 
+**Current launch command:** `streamlit run app_GEMINI_NLP.py`.
 
+**Live verification:** A real Gemini response was observed in the local dashboard for “When is demand highest?”. Gemini selected `get_hourly_demand_profile`, identified 17:00 and 461.45 completed rentals/hour, and passed the grounding check. Working/non-working comparison and customer-segment questions were also manually tried. The automated assistant tests are offline and do not call the live Gemini API.
 
-**\*\*Decision:\*\*** Use calendar, weather and time-related variables as model inputs.
+## 11. Automated testing and repository decisions
 
+**Test command:** `python -m pytest tests -v`  
+**Recorded result:** 37 passed, 0 failed, 1 warning (27 project tests + 10 Business Assistant tests), local run on 10 November 2026. The warning did not cause test failure.
 
+**Repository safety:** `.gitignore` excludes `.env`, `.streamlit/secrets.toml`, `.streamlit/credentials.toml`, virtual environments, caches and local `.vscode` settings. The legacy model is excluded. `models/bike_demand_model_bundle.pkl` is tracked using Git LFS because it exceeds the regular GitHub 100 MiB file limit.
 
-**\*\*Selected features:\*\***
+## 12. Final decision
 
-\- Season
-
-\- Year
-
-\- Month
-
-\- Hour
-
-\- Holiday
-
-\- Weekday
-
-\- Working-day indicator
-
-\- Weather situation
-
-\- Temperature
-
-\- Feels-like temperature
-
-\- Humidity
-
-\- Windspeed
-
-
-
-**\*\*Target:\*\*** \`cnt\` (total hourly rentals).
-
-
-
-**\*\*Excluded features:\*\***
-
-\- \`casual\`
-
-\- \`registered\`
-
-\- \`instant\`
-
-
-
-**\*\*Reasoning:\*\*** Casual and registered rentals sum to the target variable, so including them would introduce direct target leakage. The instant column is an identifier rather than a meaningful predictive feature.
-
-
-
-**## 4. Exploratory Data Analysis**
-
-
-
-**\*\*Decision:\*\*** Analyse demand separately by hour, working-day status, customer segment and weather condition.
-
-
-
-**\*\*Reasoning:\*\*** Overall averages can hide important differences in demand behaviour.
-
-
-
-**\*\*Key findings:\*\***
-
-\- Average observed completed rentals per hour are approximately 189.5.
-
-\- Maximum observed completed rentals in an hour are 977.
-
-\- Working-day demand is concentrated around morning and evening commuting periods.
-
-\- Non-working-day demand is relatively stronger around midday.
-
-\- Registered users contribute a larger proportion of rentals on working days.
-
-\- Casual users contribute a larger proportion on non-working days.
-
-\- Adverse weather is associated with lower observed rental demand.
-
-
-
-**\*\*Implication:\*\*** Operational planning should consider different demand profiles rather than using a uniform allocation strategy throughout the day.
-
-
-
-**## 5. Statistical Testing**
-
-
-
-**\*\*Decision:\*\*** Use non-parametric tests for comparisons where distributional assumptions may not be appropriate.
-
-
-
-**\*\*Methods used:\*\***
-
-\- Mann–Whitney U test for distributional comparisons.
-
-\- Kruskal–Wallis test for comparisons across multiple groups.
-
-\- Permutation testing for mean differences.
-
-\- Bootstrap resampling for confidence intervals.
-
-
-
-**\*\*Additional commute analysis decision:\*\*** Aggregate hourly records into daily observations and retain only complete days containing all 24 hours.
-
-
-
-**\*\*Commute-hour definition:\*\*** 07:00–09:00 and 17:00–19:00.
-
-
-
-**\*\*Observed result:\*\*** Mean commute-hour rental share was approximately 51.63% on working days and 26.25% on non-working days, based on 443 working days and 212 non-working days.
-
-
-
-**\*\*Reasoning:\*\*** Daily aggregation avoids treating the 24 hourly records within the same day as independent observations.
-
-
-
-**\*\*Limitation:\*\*** Consecutive days may still exhibit temporal dependence. Statistical significance does not establish causality.
-
-
-
-**## 6. Model Development**
-
-
-
-**\*\*Decision:\*\*** Compare a historical seasonal baseline with machine-learning regression models.
-
-
-
-**\*\*Models evaluated:\*\***
-
-\- Historical mean baseline grouped by working-day status and hour.
-
-\- Random Forest Regressor.
-
-\- Gradient Boosting Regressor.
-
-
-
-**\*\*Reasoning:\*\*** A baseline establishes whether machine learning provides meaningful improvement over a simple historical estimate.
-
-
-
-**\*\*Validation strategy:\*\*** Use a chronological split, training on earlier observations and evaluating on later observations.
-
-
-
-**\*\*Reasoning:\*\*** This better represents forecasting future demand than a random train-test split.
-
-
-
-**\*\*Leakage prevention:\*\*** Exclude customer segment counts and identifier columns from model features.
-
-
-
-**## 7. Model Selection**
-
-
-
-**\*\*Decision:\*\*** Retain the original Random Forest model as the primary model.
-
-
-
-**\*\*Reasoning:\*\*** Random Forest was retained as the selected model in the current forecasting workflow. Model selection should be based on the chronological validation results; the final test set is used for the reported generalisation metrics.
-
-
-
-**\*\*Original Random Forest configuration:\*\***
-
-\- \`n_estimators = 300\`
-
-\- \`max_depth = None\`
-
-\- \`min_samples_split = 2\`
-
-\- \`min_samples_leaf = 2\`
-
-\- \`random_state = 42\`
-
-\- \`n_jobs = -1\`
-
-
-
-**\*\*Recorded test performance:\*\***
-
-\- MAE: approximately 45.78
-
-\- RMSE: approximately 71.02
-
-\- R²: approximately 0.8955
-
-
-
-**\*\*Tuning decision:\*\*** Retain the Random Forest configuration selected in the current forecasting workflow. Compare tuning alternatives using validation performance; do not use the final test set repeatedly to choose hyperparameters.
-
-
-
-**\*\*Reasoning:\*\*** Hyperparameter tuning should be justified by actual validation improvements, not performed merely to produce a more complex model.
-
-
-
-**## 8. Peak-Hour Error Analysis**
-
-
-
-**\*\*Decision:\*\*** Evaluate model performance separately during commute periods and off-peak periods.
-
-
-
-**\*\*Reasoning:\*\*** Overall performance metrics can hide errors during operationally important hours.
-
-
-
-**\*\*Commute-hour windows:\*\*** 07:00–09:00 and 17:00–19:00.
-
-
-
-**\*\*Recorded findings:\*\***
-
-\- Morning peak MAE: approximately 64.21.
-
-\- Evening peak MAE: approximately 99.11.
-
-\- Off-peak MAE: approximately 33.79.
-
-\- Working-day peak prediction bias: approximately -53.47.
-
-\- Non-working-day peak prediction bias: approximately +12.68.
-
-
-
-**\*\*Bias definition:\*\*** Prediction bias is calculated as predicted demand minus actual demand. Negative values indicate underprediction.
-
-
-
-**\*\*Implication:\*\*** Forecasts require particular caution during working-day commute peaks. Operational planning should not rely solely on overall model accuracy.
-
-
-
-**## 9. Fleet Estimation**
-
-
-
-**\*\*Decision:\*\*** Use scenario-based fleet estimation rather than claiming an exact required fleet size.
-
-
-
-**\*\*Formula:\*\***
-
-
-
-\`Estimated fleet = (Hourly demand × Trip duration × Spatial buffer) / (1 − Maintenance share)\`
-
-
-
-**\*\*Assumptions considered:\*\***
-
-\- Average trip duration.
-
-\- Spatial allocation buffer.
-
-\- Maintenance reserve.
-
-
-
-**\*\*Reasoning:\*\*** These assumptions allow sensitivity analysis when direct fleet inventory and trip-duration information are unavailable.
-
-
-
-**\*\*Limitation:\*\*** Hourly rental starts are not equivalent to simultaneous bike occupancy. The estimates are illustrative scenarios, not verified fleet requirements.
-
-
-
-**## 10. Business Recommendation**
-
-
-
-**\*\*Decision:\*\*** Investigate demand-informed redistribution and operational improvements before committing to additional bike purchases.
-
-
-
-**\*\*Reasoning:\*\***
-
-\- Demand is concentrated in specific hours.
-
-\- Working-day and non-working-day demand profiles differ.
-
-\- The forecasting model provides useful demand estimates.
-
-\- Existing data does not establish whether shortages are caused by insufficient total fleet capacity or poor spatial allocation.
-
-
-
-**\*\*Recommended next step:\*\*** Conduct an operational pilot using demand forecasts to guide redistribution, then measure its impact against the existing allocation process.
-
-
-
-**\*\*Additional data required:\*\***
-
-\- Station-level bike availability.
-
-\- Failed or abandoned rental requests.
-
-\- Trip origins and destinations.
-
-\- Trip duration.
-
-\- Bike maintenance status.
-
-\- Rebalancing and relocation records.
-
-
-
-**## 11. Dashboard and Business Assistant**
-
-
-
-**\*\*Decision:\*\*** Build an interactive Streamlit dashboard to communicate the analytical findings and demonstrate practical decision-support capabilities.
-
-
-
-**\*\*Dashboard sections:\*\***
-
-1\. Demand Overview
-
-2\. Hourly Analysis
-
-3\. Customer Segmentation
-
-4\. Demand Prediction
-
-5\. Fleet Planning & Experiment
-
-6\. Business Assistant
-
-
-
-**\*\*Business Assistant decision:\*\*** Use a deterministic, rule-based approach to answer predefined business questions using the project's analytical results.
-
-
-
-**\*\*Reasoning:\*\*** This provides a lightweight, transparent prototype without requiring an external language-model API.
-
-
-
-**\*\*Limitation:\*\*** The assistant is not a general-purpose conversational AI system.
-
-
-
-**\*\*Automated testing status:\*\*** The latest local test run completed with 27 passed, 0 failed and 0 skipped. One third-party deprecation warning was displayed and did not affect the result.
-
-
-
-**---**
-
-
-
-**## Final Decision**
-
-
-
-The case study does not provide sufficient evidence to conclude that the company must purchase additional bikes or that redistribution alone will solve the problem.
-
-
-
-The most defensible recommendation is to investigate demand-informed redistribution and fleet-health improvements through a controlled operational pilot, collect station-level availability and unmet-demand data, and use those results to make a better-informed fleet expansion decision.
+Prioritize station-level measurement, fleet-health improvements and a controlled forecast-guided redistribution pilot before broad fleet expansion. The historical dataset supports demand-timing analysis and completed-rental forecasting; it does not prove station-level shortages, causal redistribution effects or the exact fleet required.

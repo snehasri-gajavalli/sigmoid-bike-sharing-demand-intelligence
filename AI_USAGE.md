@@ -1,71 +1,68 @@
 # AI Usage Disclosure
 
 **Project:** Bike Sharing Demand Intelligence  
-**Case Study:** Sigmoid Data Science Trainee — Round 2
+**Case study:** Sigmoid Data Science Trainee — Round 2  
+**Approach:** Human-led, AI-assisted development and validation
 
-## 1. Purpose of AI Assistance
+## 1. Purpose and scope
 
-AI tools were used as supporting resources during the development of this case study. They assisted with learning, debugging, code refinement, interpretation of analytical outputs, documentation and presentation.
+AI tools were used as supporting resources during project development. They assisted with learning unfamiliar concepts, planning analyses, drafting and refining code, debugging, interpreting outputs, preparing visualizations, building the Streamlit interface, writing tests and preparing documentation. AI assistance did not remove the project owner's responsibility to understand, run, check and explain the work.
 
-AI assistance was used to support the project work; it did not replace the project owner's responsibility for reviewing the analysis, validating code and outputs, or making the final business recommendation.
+## 2. Tools used
 
-## 2. Areas Where AI Assistance Was Used
+- **ChatGPT (OpenAI):** used for explanations, analysis planning, code drafts and refinements, debugging support, interpretation of project outputs, report/README/decision-log drafting, UI guidance and test-authoring assistance.
+- **Google Gemini API:** integrated into the Business Assistant as the natural-language layer. Gemini interprets a manager's question and selects from a defined set of analytical functions. The local Python functions—not Gemini—perform the calculations and access the Pandas data/model. Gemini receives aggregate tool results for explanation rather than the raw CSV files or arbitrary executable code.
+- **Python libraries and project code:** Pandas, NumPy, scikit-learn, SciPy, Matplotlib/Seaborn, Streamlit, joblib and pytest were used in the data workflow, modelling, application and validation.
 
-### A. Data Understanding and Analysis
-- Clarified dataset columns and their meanings.
-- Assisted with understanding data-cleaning approaches and exploratory analysis techniques.
-- Helped interpret statistical outputs and visualizations.
-- Suggested additional questions for investigating demand patterns.
+## 3. Areas where AI assistance was used
 
-### B. Statistical Analysis
-- Explained hypothesis testing, p-values, confidence intervals and effect sizes.
-- Helped structure working-day versus non-working-day comparisons.
-- Suggested daily-level aggregation for commute-share analysis to avoid treating hourly observations from the same day as independent observations.
-- Assisted with interpreting the limitations of statistical results.
+### Data understanding and exploratory analysis
 
-### C. Machine Learning
-- Assisted with understanding regression models and evaluation metrics.
-- Helped structure model-comparison and error-analysis code.
-- Suggested evaluating peak-hour performance using MAE, RMSE and prediction bias.
-- Helped interpret feature-importance and model-performance outputs.
+AI assistance helped explain dataset fields, timestamp gaps, data-quality checks, feature meanings and exploratory-analysis approaches. It helped organize questions about hourly demand, day type, customer segment and weather. Findings in the report are based on the project's dataset and recorded outputs, not on unverified model-generated numbers.
 
-### D. Fleet Planning and Business Reasoning
-- Assisted in formulating an illustrative fleet-sizing calculation.
-- Helped identify assumptions involving trip duration, spatial buffer and maintenance reserve.
-- Suggested operational recommendations based on observed demand patterns.
-- Helped distinguish dataset-supported findings from assumptions requiring additional operational data.
+### Statistical analysis
 
-### E. Dashboard and Documentation
-- Assisted with Streamlit dashboard development and debugging.
-- Helped organize and present dashboard functionality.
-- Assisted in drafting and refining the README, final report and decision log.
-- Helped prepare explanations of technical and business findings.
+AI assistance helped explain null/alternative hypotheses, daily-level aggregation, non-parametric tests, p-values, confidence intervals, effect sizes and interpretation limits. The commute-window hypothesis uses complete days as the analysis unit to avoid treating the 24 hourly rows within a day as independent observations.
 
-## 3. Human Review and Responsibility
+### Machine learning
 
-The project owner ran the analytical code and experiments, examined the resulting outputs, tested the dashboard and reviewed the recommendations.
+AI assistance helped structure the Random Forest workflow, chronological train/validation/test evaluation, feature-importance interpretation and peak-period error analysis. The reported final model metrics are the latest recorded project test values: MAE 64.09, RMSE 94.54 and R² 0.8068. Earlier model-run metrics were not mixed into the final result table.
 
-The project owner retained responsibility for:
-- Defining the business problem and analytical objectives.
-- Reviewing data quality and feature selection.
-- Running and checking the statistical tests and machine-learning experiments.
-- Evaluating model performance and prediction errors.
-- Reviewing fleet-sizing assumptions.
-- Making the final business recommendation.
-- Checking the final project deliverables.
+### Fleet planning and business reasoning
 
-AI-generated suggestions and code were treated as assistance and were not assumed to be correct without review. Reported findings were checked against the project's dataset and generated outputs.
+AI assistance helped formulate the Little's Law scenario, identify trip-duration/positioning/maintenance assumptions, structure sensitivity analysis and develop the controlled redistribution pilot proposal. Fleet scenario numbers are explicitly labelled assumption-based. AI assistance also helped distinguish what citywide completed-rental data can show from what requires station-level operational records.
 
-## 4. Limitations and Responsible Use
+### Streamlit and Gemini Business Assistant
 
-- AI-generated code can contain errors and must be executed and validated.
-- Statistical interpretations depend on the actual test configuration, data and assumptions.
-- Observational associations do not establish causality.
-- Fleet-sizing estimates depend on assumptions and must not be presented as verified fleet requirements.
-- AI-generated recommendations cannot substitute for station-level operational evidence.
+AI assistance was used to draft and debug the Gemini integration, function declarations, argument validation, local dispatcher, fallback behaviour and UI integration. The implemented design uses manual function calling and an allow-listed set of analytical functions. A numeric-grounding check is applied to the generated explanation. The original `app.py` was retained and the Gemini-enabled entry point is `app_GEMINI_NLP.py`.
 
-## 5. Final Disclosure
+### Documentation and visual communication
 
-AI tools were used as learning, coding, debugging, analytical-interpretation and documentation assistants during this project. The analysis was run against the bike-sharing dataset, and the outputs used in the project were reviewed against the generated results.
+AI assistance helped organize and edit the README, decision log, AI-use disclosure, case-study report, architecture diagram and explanatory chart captions. The project owner should retain the notebooks, source files and output CSVs as the evidence trail for reported values.
 
-The project owner retained responsibility for the final modelling decisions, interpretation of findings and business recommendation.
+## 4. Human review and responsibility
+
+The project owner defined the case-study objective, ran the local commands and notebooks, inspected the Streamlit dashboard, configured the Gemini API key locally, tested Business Assistant questions, ran the pytest suites and made the final project recommendation. AI-generated code and interpretations were treated as drafts or assistance and were not assumed correct without execution or review.
+
+The owner remains responsible for understanding and defending the analysis, model assumptions, experiment design, code, test results and final recommendation during evaluation or interview.
+
+## 5. Validation evidence
+
+- Existing project test suite: 27 tests passed.
+- Business Assistant offline test suite: 10 tests passed.
+- Combined run: `python -m pytest tests -v` — **37 passed, 0 failed, 1 warning** (local run recorded on 10 November 2026).
+- A live Gemini function-calling response was separately observed in the local Streamlit application. The offline pytest suite does not call the live Gemini API.
+
+## 6. Responsible use and limitations
+
+- AI-generated code can be incorrect and must be run and tested.
+- Observational relationships do not establish causation.
+- The Random Forest predicts completed rentals, not unobserved demand or station-level shortages.
+- The 491-bike example is a scenario using assumed trip duration, spatial buffer and maintenance reserve, not a verified fleet requirement.
+- The UCI dataset lacks station availability, failed rental attempts, trip durations, station-to-station flows and maintenance status.
+- Weather category 4 has only three observations, and consecutive daily data may exhibit temporal dependence.
+- The Gemini API key is supplied through a local environment variable or Streamlit secrets. It must not be committed to source control or exposed in screenshots.
+
+## 7. Disclosure statement
+
+This case study was developed with AI assistance for learning, coding, debugging, statistical interpretation, prototype development and documentation. The project owner executed the work in the local project environment, reviewed outputs, tested the application and retained responsibility for the final analytical and business decisions. Gemini is also an explicit component of the final natural-language prototype and is disclosed as such.
