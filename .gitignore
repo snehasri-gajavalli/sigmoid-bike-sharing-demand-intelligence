@@ -1,0 +1,31 @@
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Secrets and API keys
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+.streamlit/credentials.toml
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+
+# Testing cache
+.pytest_cache/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Legacy model - not used by current dashboard
+models/bike_demand_random_forest.pkl
+
+# Local VS Code settings
+.vscode/
